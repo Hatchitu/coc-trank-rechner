@@ -128,6 +128,7 @@
       </div>
     </div>
     <div class="hint">Der Trank läuft 5 Minuten bis 10 Stunden. Während der Laufzeit arbeiten alle Bauarbeiter <span id="boostLabel">10×</span> so schnell.</div>
+    <div class="hint" id="potionStatus"></div>
   </div>
 
   <div class="panel">
@@ -148,6 +149,7 @@ const potionM = document.getElementById("potionM");
 const boostInput = document.getElementById("boost");
 const potionLabel = document.getElementById("potionLabel");
 const boostLabel = document.getElementById("boostLabel");
+const potionStatus = document.getElementById("potionStatus");
 const upgradesEl = document.getElementById("upgrades");
 const addBtn = document.getElementById("addBtn");
 const resetBtn = document.getElementById("resetBtn");
@@ -156,11 +158,13 @@ const totalLine = document.getElementById("totalLine");
 let upgradeId = 0;
 const cards = [];
 const STORAGE_KEY = "coc-trank-rechner-v1";
+let potionStart = Date.now();
 
 function saveState() {
   const data = {
     potion: Number(potionSlider.value),
     boost: Number(boostInput.value),
+    potionStart: potionStart,
     upgrades: cards.map(card => ({
       name: card.querySelector(".u-name").value,
       remMin: card.remMin,
@@ -171,16 +175,25 @@ function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
 
+function potionBoost() {
+  return Math.max(2, Math.floor(Number(boostInput.value) || 10));
+}
+
+function gameElapsedBetween(fromMs, toMs) {
+  const elapsed = Math.max(0, (toMs - fromMs) / 60000);
+  const potionEnd = potionStart + getPotionMinutes() * 60000;
+  const overlap = Math.max(0, Math.min(toMs, potionEnd) - Math.max(fromMs, potionStart)) / 60000;
+  return overlap * potionBoost() + (elapsed - overlap);
+}
+
 function tick() {
   const now = Date.now();
-  let changed = false;
   cards.forEach(card => {
-    const elapsed = (now - card.lastTick) / 60000;
+    const from = card.lastTick;
     card.lastTick = now;
-    if (card.remMin > 0 && !card.finished && elapsed > 0) {
-      card.remMin = Math.max(0, card.remMin - elapsed);
+    if (card.remMin > 0 && !card.finished && now > from) {
+      card.remMin = Math.max(0, card.remMin - gameElapsedBetween(from, now));
       if (card.remMin <= 0) card.finished = true;
-      changed = true;
       const t = Math.ceil(card.remMin);
       card.querySelector(".u-d").value = Math.floor(t / 1440);
       card.querySelector(".u-h").value = Math.floor((t % 1440) / 60);
@@ -188,7 +201,7 @@ function tick() {
       card.querySelector(".u-slider").value = Math.min(20160, t);
     }
   });
-  if (changed) update();
+  update();
 }
 
 function clamp(v, min, max) {
@@ -219,18 +232,23 @@ function setPotionFromSlider(mins) {
 
 function syncPotionFromFields() {
   const mins = Math.min(600, Math.max(5, getPotionMinutes()));
+  potionStart = Date.now();
   potionSlider.value = mins;
   setPotionFromSlider(mins);
   update();
 }
 
 potionSlider.addEventListener("input", () => {
+  potionStart = Date.now();
   setPotionFromSlider(Number(potionSlider.value));
   update();
 });
 potionH.addEventListener("input", syncPotionFromFields);
 potionM.addEventListener("input", syncPotionFromFields);
-boostInput.addEventListener("input", () => update());
+boostInput.addEventListener("input", () => {
+  potionStart = Date.now();
+  update();
+});
 
 function addUpgrade(name, remMin, finished) {
   upgradeId++;
@@ -318,6 +336,7 @@ resetBtn.addEventListener("click", () => {
   localStorage.removeItem(STORAGE_KEY);
   cards.length = 0;
   upgradesEl.innerHTML = "";
+  potionStart = Date.now();
   potionSlider.value = 60;
   setPotionFromSlider(60);
   boostInput.value = 10;
@@ -327,21 +346,26 @@ resetBtn.addEventListener("click", () => {
 
 function update() {
   const potion = getPotionMinutes();
-  const boost = Math.max(2, Math.floor(Number(boostInput.value) || 10));
+  const boost = potionBoost();
+  const now = Date.now();
+  const potionLeft = Math.max(0, potionStart + potion * 60000 - now) / 60000;
   potionLabel.textContent = fmt(potion);
   boostLabel.textContent = boost + "×";
+  if (potionLeft > 0) {
+    potionStatus.textContent = "⏳ Trank noch aktiv für: " + fmt(Math.ceil(potionLeft)) + " — danach arbeiten die Bauarbeiter wieder mit 1×.";
+  } else {
+    potionStatus.textContent = "Kein Trank aktiv — die Laufzeit einstellen startet den Trank sofort.";
+  }
 
-  const factor = boost - 1;
   let savedTotal = 0;
   let remainingTotal = 0;
 
   document.querySelectorAll(".upgrade").forEach(card => {
     const t = card.getTotal();
-    const newTime = t <= boost * potion ? t / boost : t - factor * potion;
+    const newTime = t <= boost * potionLeft ? t / boost : potionLeft + (t - boost * potionLeft);
     const saved = t - newTime;
-    const now = new Date();
-    const end = new Date(now.getTime() + t * 60000);
-    const endNew = new Date(now.getTime() + newTime * 60000);
+    const end = new Date(now + t * 60000);
+    const endNew = new Date(now + newTime * 60000);
 
     const newEl = card.querySelector(".u-new");
     const savedEl = card.querySelector(".u-saved");
@@ -393,9 +417,11 @@ function loadState() {
     setPotionFromSlider(Number(potionSlider.value));
   }
   if (data.boost) boostInput.value = clamp(data.boost, 2, 20);
+  if (data.potionStart) potionStart = Number(data.potionStart);
   const upgrades = data.upgrades || [];
   upgrades.forEach(u => {
-    const rem = Math.max(0, (Number(u.remMin) || 0) - (now - (Number(u.ts) || now)) / 60000);
+    const ts = Number(u.ts) || now;
+    const rem = Math.max(0, (Number(u.remMin) || 0) - gameElapsedBetween(ts, now));
     addUpgrade(u.name, rem, u.finished);
   });
   return upgrades.length > 0;
