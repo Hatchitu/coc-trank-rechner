@@ -212,7 +212,7 @@ function addUpgrade(name) {
     <div class="results">
       <div class="result-box"><div class="title">Restzeit mit Trank</div><div class="value u-new">–</div></div>
       <div class="result-box"><div class="title">Gespart</div><div class="value saved u-saved">–</div></div>
-      <div class="result-box"><div class="title">Ohne Trank fertig am</div><div class="value u-end">–</div></div>
+      <div class="result-box"><div class="title">Fertig am (mit Trank)</div><div class="value u-end">–</div></div>
     </div>
   `;
   card.querySelector(".remove").addEventListener("click", () => {
@@ -265,10 +265,11 @@ function update() {
 
   document.querySelectorAll(".upgrade").forEach(card => {
     const t = card.getTotal();
-    const saved = Math.min(t, factor * potion);
+    const newTime = t <= boost * potion ? t / boost : t - factor * potion;
+    const saved = t - newTime;
     const now = new Date();
     const end = new Date(now.getTime() + t * 60000);
-    const endNew = new Date(now.getTime() + (t - saved) * 60000);
+    const endNew = new Date(now.getTime() + newTime * 60000);
 
     const newEl = card.querySelector(".u-new");
     const savedEl = card.querySelector(".u-saved");
@@ -276,23 +277,23 @@ function update() {
       newEl.textContent = "–";
       newEl.classList.remove("done");
       savedEl.textContent = "–";
-    } else if (t - saved <= 0) {
+    } else if (Math.round(newTime) <= 0) {
       newEl.textContent = "Fertig! 🎉";
       newEl.classList.add("done");
       savedEl.textContent = fmt(saved);
     } else {
       newEl.classList.remove("done");
-      newEl.textContent = fmt(t - saved);
+      newEl.textContent = fmt(newTime);
       savedEl.textContent = fmt(saved) + "  (−" + Math.round(100 * saved / t) + " %)";
     }
     card.querySelector(".u-end").textContent =
-      end.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" }) + " " +
-      end.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+      endNew.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" }) + " " +
+      endNew.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
     card.querySelector(".u-end").title =
-      "Mit Trank: " + endNew.toLocaleString("de-DE");
+      "Ohne Trank: " + end.toLocaleString("de-DE");
 
     savedTotal += saved;
-    remainingTotal += t - saved;
+    remainingTotal += newTime;
   });
 
   totalLine.textContent =
