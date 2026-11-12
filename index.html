@@ -108,7 +108,7 @@
   <div class="subtitle">Trank aktivieren und sofort sehen, wie viel kürzer deine Bauten dauern.</div>
 
   <div class="panel" id="potionPanel">
-    <h2>🧪 Trank</h2>
+    <h2>🧪 Trank <span class="badge" id="potionCountdown">–</span></h2>
     <div class="row">
       <div class="field">
         <label for="potionH">Stunden</label>
@@ -150,6 +150,7 @@ const boostInput = document.getElementById("boost");
 const potionLabel = document.getElementById("potionLabel");
 const boostLabel = document.getElementById("boostLabel");
 const potionStatus = document.getElementById("potionStatus");
+const potionCountdown = document.getElementById("potionCountdown");
 const upgradesEl = document.getElementById("upgrades");
 const addBtn = document.getElementById("addBtn");
 const resetBtn = document.getElementById("resetBtn");
@@ -344,18 +345,31 @@ resetBtn.addEventListener("click", () => {
   update();
 });
 
+function potionLeftMinutes() {
+  return Math.max(0, potionStart + getPotionMinutes() * 60000 - Date.now()) / 60000;
+}
+
+function renderPotionStatus() {
+  const left = potionLeftMinutes();
+  if (left > 0) {
+    potionCountdown.textContent = "noch " + fmt(Math.ceil(left));
+    potionCountdown.style.color = "";
+    potionStatus.textContent = "⏳ Trank noch aktiv für: " + fmt(Math.ceil(left)) + " — danach arbeiten die Bauarbeiter wieder mit 1×.";
+  } else {
+    potionCountdown.textContent = "abgelaufen";
+    potionCountdown.style.color = "var(--muted)";
+    potionStatus.textContent = "Kein Trank aktiv — die Laufzeit einstellen startet den Trank sofort.";
+  }
+}
+
 function update() {
   const potion = getPotionMinutes();
   const boost = potionBoost();
   const now = Date.now();
-  const potionLeft = Math.max(0, potionStart + potion * 60000 - now) / 60000;
+  const potionLeft = potionLeftMinutes();
   potionLabel.textContent = fmt(potion);
   boostLabel.textContent = boost + "×";
-  if (potionLeft > 0) {
-    potionStatus.textContent = "⏳ Trank noch aktiv für: " + fmt(Math.ceil(potionLeft)) + " — danach arbeiten die Bauarbeiter wieder mit 1×.";
-  } else {
-    potionStatus.textContent = "Kein Trank aktiv — die Laufzeit einstellen startet den Trank sofort.";
-  }
+  renderPotionStatus();
 
   let savedTotal = 0;
   let remainingTotal = 0;
@@ -430,6 +444,7 @@ function loadState() {
 if (!loadState()) addUpgrade("Bauarbeit 1");
 update();
 setInterval(tick, 30000);
+setInterval(renderPotionStatus, 1000);
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) tick();
 });
