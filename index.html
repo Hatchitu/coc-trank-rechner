@@ -149,6 +149,42 @@ const addBtn = document.getElementById("addBtn");
 const totalLine = document.getElementById("totalLine");
 
 let upgradeId = 0;
+const cards = [];
+const STORAGE_KEY = "coc-trank-rechner-v1";
+
+function saveState() {
+  const data = {
+    potion: Number(potionSlider.value),
+    boost: Number(boostInput.value),
+    upgrades: cards.map(card => ({
+      name: card.querySelector(".u-name").value,
+      remMin: card.remMin,
+      ts: card.lastTick,
+      finished: !!card.finished
+    }))
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+function tick() {
+  const now = Date.now();
+  let changed = false;
+  cards.forEach(card => {
+    const elapsed = (now - card.lastTick) / 60000;
+    card.lastTick = now;
+    if (card.remMin > 0 && !card.finished && elapsed > 0) {
+      card.remMin = Math.max(0, card.remMin - elapsed);
+      if (card.remMin <= 0) card.finished = true;
+      changed = true;
+      const t = Math.ceil(card.remMin);
+      card.querySelector(".u-d").value = Math.floor(t / 1440);
+      card.querySelector(".u-h").value = Math.floor((t % 1440) / 60);
+      card.querySelector(".u-m").value = t % 60;
+      card.querySelector(".u-slider").value = Math.min(20160, t);
+    }
+  });
+  if (changed) update();
+}
 
 function clamp(v, min, max) {
   v = Math.floor(Number(v) || 0);
@@ -191,13 +227,17 @@ potionH.addEventListener("input", syncPotionFromFields);
 potionM.addEventListener("input", syncPotionFromFields);
 boostInput.addEventListener("input", () => update());
 
-function addUpgrade(name) {
+function addUpgrade(name, remMin, finished) {
   upgradeId++;
   const card = document.createElement("div");
   card.className = "upgrade";
+  card.remMin = remMin !== undefined ? remMin : 0;
+  card.finished = !!finished;
+  card.lastTick = Date.now();
+  cards.push(card);
   card.innerHTML = `
     <div class="upgrade-head">
-      <input type="text" class="u-name" placeholder="Name (z.B. Rathaus 15)" value="${name || ""}">
+      <input type="text" class="u-name" placeholder="Name (z.B. Rathaus 15)" value="">
       <button class="remove" title="Entfernen">✕</button>
     </div>
     <div class="row">
@@ -215,7 +255,11 @@ function addUpgrade(name) {
       <div class="result-box"><div class="title">Fertig am (mit Trank)</div><div class="value u-end">–</div></div>
     </div>
   `;
+  card.querySelector(".u-name").value = name || "";
+  card.querySelector(".u-name").addEventListener("input", () => update());
   card.querySelector(".remove").addEventListener("click", () => {
+    const idx = cards.indexOf(card);
+    if (idx >= 0) cards.splice(idx, 1);
     card.remove();
     update();
   });
@@ -230,8 +274,10 @@ function addUpgrade(name) {
   }
 
   function setFromFields() {
-    const t = total();
-    slider.value = t;
+    card.remMin = total();
+    card.finished = false;
+    card.lastTick = Date.now();
+    slider.value = card.remMin;
     update();
   }
 
@@ -240,11 +286,20 @@ function addUpgrade(name) {
     d.value = Math.floor(t / 1440);
     h.value = Math.floor((t % 1440) / 60);
     m.value = t % 60;
+    card.remMin = t;
+    card.finished = false;
+    card.lastTick = Date.now();
     update();
   });
   d.addEventListener("input", setFromFields);
   h.addEventListener("input", setFromFields);
   m.addEventListener("input", setFromFields);
+
+  const t0 = Math.ceil(card.remMin);
+  d.value = Math.floor(t0 / 1440);
+  h.value = Math.floor((t0 % 1440) / 60);
+  m.value = t0 % 60;
+  slider.value = Math.min(20160, t0);
 
   card.getTotal = total;
   upgradesEl.appendChild(card);
@@ -274,8 +329,13 @@ function update() {
     const newEl = card.querySelector(".u-new");
     const savedEl = card.querySelector(".u-saved");
     if (t <= 0) {
-      newEl.textContent = "–";
-      newEl.classList.remove("done");
+      if (card.finished) {
+        newEl.textContent = "Fertig! 🎉";
+        newEl.classList.add("done");
+      } else {
+        newEl.textContent = "–";
+        newEl.classList.remove("done");
+      }
       savedEl.textContent = "–";
     } else if (Math.round(newTime) <= 0) {
       newEl.textContent = "Fertig! 🎉";
@@ -299,10 +359,37 @@ function update() {
   totalLine.textContent =
     "Insgesamt gespart: " + fmt(savedTotal) +
     "  ·  Restzeit aller Bauarbeiten zusammen: " + fmt(remainingTotal);
+  saveState();
 }
 
-addUpgrade("Bauarbeit 1");
+function loadState() {
+  let data = null;
+  try {
+    data = JSON.parse(localStorage.getItem(STORAGE_KEY));
+  } catch (e) {
+    data = null;
+  }
+  if (!data) return false;
+  const now = Date.now();
+  if (data.potion) {
+    potionSlider.value = clamp(data.potion, 5, 600);
+    setPotionFromSlider(Number(potionSlider.value));
+  }
+  if (data.boost) boostInput.value = clamp(data.boost, 2, 20);
+  const upgrades = data.upgrades || [];
+  upgrades.forEach(u => {
+    const rem = Math.max(0, (Number(u.remMin) || 0) - (now - (Number(u.ts) || now)) / 60000);
+    addUpgrade(u.name, rem, u.finished);
+  });
+  return upgrades.length > 0;
+}
+
+if (!loadState()) addUpgrade("Bauarbeit 1");
 update();
+setInterval(tick, 30000);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) tick();
+});
 </script>
 </body>
 </html>
