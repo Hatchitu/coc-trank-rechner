@@ -99,6 +99,7 @@
   button.remove:hover { color: #ff7b7b; border-color: #ff7b7b; }
   .hint { color: var(--muted); font-size: .8rem; margin-top: 10px; }
   .total-line { margin-top: 14px; padding-top: 12px; border-top: 1px solid #3a4a66; font-size: .95rem; color: var(--accent2); }
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; }
 </style>
 </head>
 <body>
@@ -132,7 +133,10 @@
   <div class="panel">
     <h2>🔧 Bauarbeiten</h2>
     <div id="upgrades"></div>
-    <button id="addBtn">+ Bauarbeit hinzufügen</button>
+    <div class="actions">
+      <button id="addBtn">+ Bauarbeit hinzufügen</button>
+      <button id="resetBtn" class="remove">Alles zurücksetzen</button>
+    </div>
     <div class="total-line" id="totalLine"></div>
   </div>
 </div>
@@ -146,6 +150,7 @@ const potionLabel = document.getElementById("potionLabel");
 const boostLabel = document.getElementById("boostLabel");
 const upgradesEl = document.getElementById("upgrades");
 const addBtn = document.getElementById("addBtn");
+const resetBtn = document.getElementById("resetBtn");
 const totalLine = document.getElementById("totalLine");
 
 let upgradeId = 0;
@@ -307,6 +312,18 @@ function addUpgrade(name, remMin, finished) {
 }
 
 addBtn.addEventListener("click", () => addUpgrade());
+
+resetBtn.addEventListener("click", () => {
+  if (!confirm("Wirklich alles zurücksetzen? Alle Bauarbeiten und Einstellungen werden gelöscht.")) return;
+  localStorage.removeItem(STORAGE_KEY);
+  cards.length = 0;
+  upgradesEl.innerHTML = "";
+  potionSlider.value = 60;
+  setPotionFromSlider(60);
+  boostInput.value = 10;
+  addUpgrade("Bauarbeit 1");
+  update();
+});
 
 function update() {
   const potion = getPotionMinutes();
