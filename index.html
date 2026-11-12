@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bauarbeiter-Trank Rechner</title>
+<style>
+  :root {
+    --bg: #1b2432;
+    --panel: #253044;
+    --panel2: #2e3b52;
+    --accent: #f5a623;
+    --accent2: #4fc3f7;
+    --text: #e8edf5;
+    --muted: #9aa8bd;
+    --good: #7ed957;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Segoe UI", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 24px 16px 60px;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  .subtitle { color: var(--muted); font-size: .9rem; margin-bottom: 20px; }
+  .panel {
+    background: var(--panel);
+    border-radius: var(--radius);
+    padding: 18px;
+    margin-bottom: 18px;
+    box-shadow: 0 4px 14px rgba(0,0,0,.25);
+  }
+  .panel h2 { margin: 0 0 14px; font-size: 1.05rem; display: flex; align-items: center; gap: 8px; }
+  .row { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }
+  .field { display: flex; flex-direction: column; gap: 4px; min-width: 90px; }
+  .field label { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .field input[type="number"] {
+    background: var(--panel2);
+    border: 1px solid #3d4c68;
+    color: var(--text);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 1rem;
+    width: 100%;
+  }
+  .field input[type="number"]:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  input[type="range"] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+  .slider-group { flex: 1 1 220px; }
+  .slider-group .slider-label { display: flex; justify-content: space-between; font-size: .8rem; color: var(--muted); margin-bottom: 2px; }
+  .badge {
+    background: var(--panel2);
+    border-radius: 8px;
+    padding: 4px 10px;
+    font-size: .85rem;
+    color: var(--accent2);
+    white-space: nowrap;
+  }
+  .results { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 14px; }
+  .result-box {
+    flex: 1 1 180px;
+    background: var(--panel2);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+  }
+  .result-box .title { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .result-box .value { font-size: 1.25rem; font-weight: 600; margin-top: 4px; }
+  .result-box .value.saved { color: var(--good); }
+  .result-box .value.done { color: var(--good); }
+  .upgrade { border-top: 1px solid #3a4a66; padding-top: 14px; margin-top: 14px; }
+  .upgrade:first-of-type { border-top: none; margin-top: 0; padding-top: 0; }
+  .upgrade-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 10px; }
+  .upgrade-head input {
+    background: var(--panel2);
+    border: 1px solid #3d4c68;
+    color: var(--text);
+    border-radius: 8px;
+    padding: 7px 10px;
+    font-size: .95rem;
+    flex: 1;
+    min-width: 120px;
+  }
+  button {
+    background: var(--accent);
+    color: #1b2432;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 16px;
+    font-size: .9rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button.secondary { background: var(--panel2); color: var(--text); border: 1px solid #3d4c68; }
+  button:hover { filter: brightness(1.1); }
+  button.remove { background: transparent; color: var(--muted); border: 1px solid #3d4c68; padding: 7px 12px; }
+  button.remove:hover { color: #ff7b7b; border-color: #ff7b7b; }
+  .hint { color: var(--muted); font-size: .8rem; margin-top: 10px; }
+  .total-line { margin-top: 14px; padding-top: 12px; border-top: 1px solid #3a4a66; font-size: .95rem; color: var(--accent2); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🏗️ Bauarbeiter-Trank Rechner</h1>
+  <div class="subtitle">Trank aktivieren und sofort sehen, wie viel kürzer deine Bauten dauern.</div>
+
+  <div class="panel" id="potionPanel">
+    <h2>🧪 Trank</h2>
+    <div class="row">
+      <div class="field">
+        <label for="potionH">Stunden</label>
+        <input type="number" id="potionH" min="0" max="10" step="1" value="1">
+      </div>
+      <div class="field">
+        <label for="potionM">Minuten</label>
+        <input type="number" id="potionM" min="0" max="59" step="1" value="0">
+      </div>
+      <div class="field">
+        <label for="boost">Boost-Faktor</label>
+        <input type="number" id="boost" min="2" max="20" step="1" value="10">
+      </div>
+      <div class="field slider-group">
+        <div class="slider-label"><span>5 Min</span><span>Trank-Laufzeit: <span id="potionLabel">1 Std 0 Min</span></span><span>10 Std</span></div>
+        <input type="range" id="potionSlider" min="5" max="600" step="5" value="60">
+      </div>
+    </div>
+    <div class="hint">Der Trank läuft 5 Minuten bis 10 Stunden. Während der Laufzeit arbeiten alle Bauarbeiter <span id="boostLabel">10×</span> so schnell.</div>
+  </div>
+
+  <div class="panel">
+    <h2>🔧 Bauarbeiten</h2>
+    <div id="upgrades"></div>
+    <button id="addBtn">+ Bauarbeit hinzufügen</button>
+    <div class="total-line" id="totalLine"></div>
+  </div>
+</div>
+
+<script>
+const potionSlider = document.getElementById("potionSlider");
+const potionH = document.getElementById("potionH");
+const potionM = document.getElementById("potionM");
+const boostInput = document.getElementById("boost");
+const potionLabel = document.getElementById("potionLabel");
+const boostLabel = document.getElementById("boostLabel");
+const upgradesEl = document.getElementById("upgrades");
+const addBtn = document.getElementById("addBtn");
+const totalLine = document.getElementById("totalLine");
+
+let upgradeId = 0;
+
+function clamp(v, min, max) {
+  v = Math.floor(Number(v) || 0);
+  return Math.min(max, Math.max(min, v));
+}
+
+function fmt(minutes) {
+  minutes = Math.round(minutes);
+  const d = Math.floor(minutes / 1440);
+  const h = Math.floor((minutes % 1440) / 60);
+  const m = minutes % 60;
+  const parts = [];
+  if (d > 0) parts.push(d + (d === 1 ? " Tag" : " Tage"));
+  if (h > 0) parts.push(h + (h === 1 ? " Std" : " Std"));
+  if (m > 0 || parts.length === 0) parts.push(m + " Min");
+  return parts.join(" ");
+}
+
+function getPotionMinutes() {
+  return clamp(potionH.value, 0, 10) * 60 + clamp(potionM.value, 0, 59);
+}
+
+function setPotionFromSlider(mins) {
+  potionH.value = Math.floor(mins / 60);
+  potionM.value = mins % 60;
+}
+
+function syncPotionFromFields() {
+  const mins = Math.min(600, Math.max(5, getPotionMinutes()));
+  potionSlider.value = mins;
+  setPotionFromSlider(mins);
+  update();
+}
+
+potionSlider.addEventListener("input", () => {
+  setPotionFromSlider(Number(potionSlider.value));
+  update();
+});
+potionH.addEventListener("input", syncPotionFromFields);
+potionM.addEventListener("input", syncPotionFromFields);
+boostInput.addEventListener("input", () => update());
+
+function addUpgrade(name) {
+  upgradeId++;
+  const card = document.createElement("div");
+  card.className = "upgrade";
+  card.innerHTML = `
+    <div class="upgrade-head">
+      <input type="text" class="u-name" placeholder="Name (z.B. Rathaus 15)" value="${name || ""}">
+      <button class="remove" title="Entfernen">✕</button>
+    </div>
+    <div class="row">
+      <div class="field"><label>Tage</label><input type="number" class="u-d" min="0" max="14" step="1" value="0"></div>
+      <div class="field"><label>Stunden</label><input type="number" class="u-h" min="0" max="23" step="1" value="0"></div>
+      <div class="field"><label>Minuten</label><input type="number" class="u-m" min="0" max="59" step="1" value="0"></div>
+      <div class="field slider-group">
+        <div class="slider-label"><span>0</span><span>Restzeit</span><span>14 Tage</span></div>
+        <input type="range" class="u-slider" min="0" max="20160" step="5" value="0">
+      </div>
+    </div>
+    <div class="results">
+      <div class="result-box"><div class="title">Restzeit mit Trank</div><div class="value u-new">–</div></div>
+      <div class="result-box"><div class="title">Gespart</div><div class="value saved u-saved">–</div></div>
+      <div class="result-box"><div class="title">Ohne Trank fertig am</div><div class="value u-end">–</div></div>
+    </div>
+  `;
+  card.querySelector(".remove").addEventListener("click", () => {
+    card.remove();
+    update();
+  });
+
+  const d = card.querySelector(".u-d");
+  const h = card.querySelector(".u-h");
+  const m = card.querySelector(".u-m");
+  const slider = card.querySelector(".u-slider");
+
+  function total() {
+    return clamp(d.value, 0, 14) * 1440 + clamp(h.value, 0, 23) * 60 + clamp(m.value, 0, 59);
+  }
+
+  function setFromFields() {
+    const t = total();
+    slider.value = t;
+    update();
+  }
+
+  slider.addEventListener("input", () => {
+    const t = Number(slider.value);
+    d.value = Math.floor(t / 1440);
+    h.value = Math.floor((t % 1440) / 60);
+    m.value = t % 60;
+    update();
+  });
+  d.addEventListener("input", setFromFields);
+  h.addEventListener("input", setFromFields);
+  m.addEventListener("input", setFromFields);
+
+  card.getTotal = total;
+  upgradesEl.appendChild(card);
+  update();
+}
+
+addBtn.addEventListener("click", () => addUpgrade());
+
+function update() {
+  const potion = getPotionMinutes();
+  const boost = Math.max(2, Math.floor(Number(boostInput.value) || 10));
+  potionLabel.textContent = fmt(potion);
+  boostLabel.textContent = boost + "×";
+
+  const factor = boost - 1;
+  let savedTotal = 0;
+  let remainingTotal = 0;
+
+  document.querySelectorAll(".upgrade").forEach(card => {
+    const t = card.getTotal();
+    const saved = Math.min(t, factor * potion);
+    const now = new Date();
+    const end = new Date(now.getTime() + t * 60000);
+    const endNew = new Date(now.getTime() + (t - saved) * 60000);
+
+    const newEl = card.querySelector(".u-new");
+    const savedEl = card.querySelector(".u-saved");
+    if (t <= 0) {
+      newEl.textContent = "–";
+      newEl.classList.remove("done");
+      savedEl.textContent = "–";
+    } else if (t - saved <= 0) {
+      newEl.textContent = "Fertig! 🎉";
+      newEl.classList.add("done");
+      savedEl.textContent = fmt(saved);
+    } else {
+      newEl.classList.remove("done");
+      newEl.textContent = fmt(t - saved);
+      savedEl.textContent = fmt(saved) + "  (−" + Math.round(100 * saved / t) + " %)";
+    }
+    card.querySelector(".u-end").textContent =
+      end.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" }) + " " +
+      end.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+    card.querySelector(".u-end").title =
+      "Mit Trank: " + endNew.toLocaleString("de-DE");
+
+    savedTotal += saved;
+    remainingTotal += t - saved;
+  });
+
+  totalLine.textContent =
+    "Insgesamt gespart: " + fmt(savedTotal) +
+    "  ·  Restzeit aller Bauarbeiten zusammen: " + fmt(remainingTotal);
+}
+
+addUpgrade("Bauarbeit 1");
+update();
+</script>
+</body>
+</html>
